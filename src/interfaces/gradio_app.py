@@ -154,7 +154,7 @@ def build_app():
     """
     with gr.Blocks(title="SolarAI") as demo:
         with gr.Row(elem_id="header"):
-            gr.Image("data/logo.png", height=50, show_label=False, container=False)
+            gr.Image("data/logo.png", height=50, show_label=False, container=False, interactive=False, show_download_button=False)
             gr.Markdown("# SolarAI", elem_id="title")
 
         with gr.Tabs():
@@ -194,9 +194,6 @@ def build_app():
                 
                 with gr.Tabs():
                     with gr.Tab("General"):
-                        gr.Markdown("### 📊 Matriz de Correlacion General")
-                        gr.Plot(value=obtener_graficos_correlacion(df))
-                        
                         gr.Markdown("### 🎯 Correlacion: Variables Clave vs Ahorro")
                         gr.Plot(value=obtener_graficos_correlacion_especifica(df))
                     

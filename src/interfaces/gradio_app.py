@@ -21,7 +21,7 @@ DF_IND = pd.read_excel(os.path.join("data", "colombia_indicadores_2018_2100.xlsx
 def load_resources():
     return MODELO, PREPRO, DF_SOLAR
 
-def predecir_ahorro(anio, tipo, material, paneles, radiacion, eficiencia, humedad, temperatura):
+def predecir_ahorro(anio, tipo, material, paneles, radiacion, eficiencia, humedad, temperatura, factura_sin_solar):
     try:
         # Asegurar tipo de año entero para la busqueda
         anio = int(anio)
@@ -53,7 +53,7 @@ def predecir_ahorro(anio, tipo, material, paneles, radiacion, eficiencia, humeda
         # ----------------------------------------------------
         # AJUSTE FISICO-ECONOMICO INTELIGENTE
         # ----------------------------------------------------
-        # 1. Radiacion solar (Peso protagónico en la produccion)
+        # 1. Radiacion solar (Peso protagonico en la produccion)
         factor_radiacion = float(radiacion) / 5.5
         
         # 2. Eficiencia del panel (A mayor eficiencia, mayor ahorro)
@@ -72,25 +72,29 @@ def predecir_ahorro(anio, tipo, material, paneles, radiacion, eficiencia, humeda
         valor_predicho = base_pred * factor_radiacion * factor_eficiencia * factor_humedad * factor_temperatura * factor_inflacion
         # ----------------------------------------------------
 
+        # Calcular el porcentaje real de ahorro respecto a la factura sin solar
+        # No se puede ahorrar mas del 100% de la factura original
+        porcentaje = (valor_predicho / float(factura_sin_solar)) * 100
+        porcentaje = min(porcentaje, 100.0)
+
         # Formatear el resultado con lenguaje amigable y llamativo
         explicacion = f"## 💰 Tu ahorro estimado: **${valor_predicho:,.2f} COP** mensuales\n"
+        explicacion += f"Esto equivale al **{porcentaje:.1f}%** de tu consumo actual sin paneles (${factura_sin_solar:,.0f} COP).\n\n"
         explicacion += f"Este calculo considera la **inflacion de energia ({ipc_e}%)** y la **TRM (${trm:,.0f})** para el año {anio}.\n\n"
         
         # Añadir un indicador visual de calidad
-        if valor_predicho > 500000:
-            explicacion += "🌟 ¡Excelente! Este es un ahorro muy significativo."
-        elif valor_predicho > 100000:
-            explicacion += "✅ ¡Muy bien! Estas teniendo un ahorro considerable."
+        if porcentaje > 60.0:
+            explicacion += "🌟 ¡Excelente! Este sistema solar cubre la mayor parte de tu consumo energetico."
+        elif porcentaje > 30.0:
+            explicacion += "✅ ¡Muy bien! Estas teniendo un ahorro y cubrimiento considerable."
         else:
-            explicacion += "💡 Es un ahorro inicial, ¡cada peso cuenta!"
+            explicacion += "💡 Es un ahorro inicial excelente, ¡cada porcentaje cuenta!"
 
         if anio > 2025:
             explicacion += f"\n\n*Nota: Proyeccion basada en los ultimos indicadores economicos disponibles.*"
 
         # Creamos un Medidor (Gauge) visual
         fig, ax = plt.subplots(figsize=(6, 2))
-        max_ahorro_esperado = 1000000 # Un millon como tope para la escala
-        porcentaje = min((valor_predicho / max_ahorro_esperado) * 100, 100)
         
         # Dibujar barra de fondo y barra de progreso
         ax.barh([0], [100], color='#eeeeee', height=0.4)
@@ -107,7 +111,7 @@ def predecir_ahorro(anio, tipo, material, paneles, radiacion, eficiencia, humeda
         
         ax.set_xlim(0, 100)
         ax.set_axis_off()
-        ax.text(0, 0.35, "Nivel de Ahorro", fontsize=12, fontweight='bold')
+        ax.text(0, 0.35, "Porcentaje de Ahorro en tu Factura", fontsize=12, fontweight='bold')
         ax.text(porcentaje, -0.35, f"{porcentaje:.1f}%", ha='center', fontweight='bold', color=color_bar)
         
         plt.tight_layout()
@@ -166,6 +170,7 @@ def build_app():
                         material = gr.Dropdown(choices=list(df['Material Panel'].unique()), label="Material de los paneles")
                         paneles = gr.Slider(1, 100, label="Cantidad de paneles", value=10)
                         radiacion = gr.Slider(1, 10, label="Nivel de sol (Radiacion)", value=5.5)
+                        factura_sin_solar = gr.Slider(100000, 3000000, step=50000, label="Factura mensual actual sin paneles (COP)", value=600000)
                         
                         with gr.Accordion("⚙️ Datos tecnicos avanzados", open=False):
                             eficiencia = gr.Slider(10, 25, label="Eficiencia del panel (%)", value=18.5)
@@ -180,7 +185,7 @@ def build_app():
                 
                 btn.click(
                     predecir_ahorro, 
-                    inputs=[anio, tipo, material, paneles, radiacion, eficiencia, humedad, temperatura], 
+                    inputs=[anio, tipo, material, paneles, radiacion, eficiencia, humedad, temperatura, factura_sin_solar], 
                     outputs=[res, plt_plot]
                 )
 

@@ -24,10 +24,9 @@ def consultar_gemini(mensaje, contexto_proyecto):
         Eres un asistente experto en el proyecto 'Energia Solar Pereira'.
         CONTEXTO: {contexto_proyecto}
         REGLAS:
-        1. Responde de forma coloquial y venezolana, combinando costeño super gracioso, haz reir a todos con tus respuestas, 
-        manteniendo un toque de clase europea.
-        2. Si la pregunta no es sobre el proyecto, pide amablemente volver al tema.
-        3. Usa el contexto para responder sobre datos, modelos o IA.
+        1. Responde de forma profesional, tecnica y formal, siendo claro y preciso en tus explicaciones cientificas y de ingenieria.
+        2. Si la pregunta no es sobre el proyecto, pide amablemente volver al tema de conversacion.
+        3. Usa el contexto para responder sobre datos, modelos o inteligencia artificial.
         
         PREGUNTA: {mensaje}
         """
@@ -49,6 +48,6 @@ def responder_pregunta(mensaje, historial, df):
     Variables: Año, Tipo, Material, Paneles, Radiacion.
     """
     if "hola" in mensaje_low:
-        return "¡Hola pues! ¿En que te ayudo con el proyecto solar?"
+        return "Hola. ¿En que puedo ayudarle con respecto al proyecto de energia solar?"
     
     return consultar_gemini(mensaje, contexto)

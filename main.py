@@ -1,6 +1,10 @@
 import os
 import subprocess
 import sys
+import warnings
+# Desactivar advertencias para mantener la consola limpia y libre de ruido
+warnings.filterwarnings("ignore")
+
 from src.processing.cleaner import limpiar_datos
 from src.ai.trainer import entrenar_modelo_clasificacion
 
@@ -31,4 +35,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# radiacion

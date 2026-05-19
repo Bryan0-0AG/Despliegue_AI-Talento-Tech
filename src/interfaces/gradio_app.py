@@ -21,8 +21,14 @@ def load_resources():
 
 def predecir_ahorro(anio, tipo, material, paneles, radiacion, eficiencia, humedad, temperatura, factura_sin_solar):
     try:
-        # Asegurar tipo de año entero para la busqueda
+        # Asegurar tipos numericos correctos y evitar decimales invalidos
         anio = int(anio)
+        paneles = int(paneles)
+        radiacion = float(radiacion)
+        eficiencia = float(eficiencia)
+        humedad = int(humedad)
+        temperatura = float(temperatura)
+        factura_sin_solar = float(factura_sin_solar)
         
         # Buscar datos del año en los indicadores precargados
         datos_anio = DF_IND[DF_IND.iloc[:, 0].astype(int) == anio]
@@ -166,14 +172,14 @@ def build_app():
                         anio = gr.Number(label="¿En que año proyectamos?", value=2024)
                         tipo = gr.Dropdown(choices=list(df['Tipo'].unique()), label="Tipo de instalacion")
                         material = gr.Dropdown(choices=list(df['Material Panel'].unique()), label="Material de los paneles")
-                        paneles = gr.Slider(1, 100, label="Cantidad de paneles", value=10)
-                        radiacion = gr.Slider(1, 10, label="Nivel de sol (Radiacion)", value=5.5)
+                        paneles = gr.Slider(1, 100, step=1, label="Cantidad de paneles", value=10)
+                        radiacion = gr.Slider(1.0, 10.0, step=0.1, label="Nivel de sol (Radiacion)", value=5.5)
                         factura_sin_solar = gr.Slider(100000, 3000000, step=50000, label="Factura mensual actual sin paneles (COP)", value=600000)
                         
                         with gr.Accordion("⚙️ Datos tecnicos avanzados", open=False):
-                            eficiencia = gr.Slider(10, 25, label="Eficiencia del panel (%)", value=18.5)
-                            humedad = gr.Slider(30, 90, label="Humedad relativa (%)", value=75.0)
-                            temperatura = gr.Slider(15, 35, label="Temperatura promedio (°C)", value=22.0)
+                            eficiencia = gr.Slider(10.0, 25.0, step=0.1, label="Eficiencia del panel (%)", value=18.5)
+                            humedad = gr.Slider(30, 90, step=1, label="Humedad relativa (%)", value=75)
+                            temperatura = gr.Slider(15.0, 35.0, step=0.5, label="Temperatura promedio (°C)", value=22.0)
                         
                         btn = gr.Button("¡Predecir mi ahorro!", variant="primary")
                     with gr.Column():

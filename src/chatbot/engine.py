@@ -1,53 +1,62 @@
-from google import genai
+from groq import Groq
 import os
 from dotenv import load_dotenv
 
-# REQUISITO: Asegurar que cargue el .env desde la raiz del proyecto y sobrescriba variables del sistema
+# Asegurar que cargue el archivo .env desde la raiz del proyecto y sobrescriba variables del sistema
 base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 dotenv_path = os.path.join(base_dir, '.env')
 load_dotenv(dotenv_path=dotenv_path, override=True)
 
-# Inicializar el cliente con el nuevo SDK
-API_KEY = os.getenv("GEMINI_API_KEY")
+# Inicializar el cliente de Groq con la clave de API
+API_KEY = os.getenv("GROQ_API_KEY")
 client = None
 if API_KEY:
     API_KEY = API_KEY.strip().replace('"', '').replace("'", "")
-    client = genai.Client(api_key=API_KEY)
+    client = Groq(api_key=API_KEY)
 
-def consultar_gemini(mensaje, contexto_proyecto):
+def consultar_groq(mensaje, contexto_herramienta):
+    # Validar que el cliente de Groq este correctamente inicializado
     if not client:
-        return "⚠️ Error: API KEY no configurada en el archivo .env"
+        return "⚠️ Error: API KEY de Groq no configurada en el archivo .env"
 
     try:
-        # Usar el nuevo metodo de generacion del SDK v2.0
+        # Definir el prompt del sistema y de usuario para el asistente
         prompt = f"""
-        Eres un asistente experto en el proyecto 'Energia Solar Pereira'.
-        CONTEXTO: {contexto_proyecto}
+        Eres un asistente experto integrado en SolarAI, una herramienta profesional desplegada para el analisis y prediccion de ahorro solar.
+        CONTEXTO DE LA HERRAMIENTA: {contexto_herramienta}
         REGLAS:
         1. Responde de forma profesional, tecnica y formal, siendo claro y preciso en tus explicaciones cientificas y de ingenieria.
-        2. Si la pregunta no es sobre el proyecto, pide amablemente volver al tema de conversacion.
-        3. Usa el contexto para responder sobre datos, modelos o inteligencia artificial.
+        2. Actua y habla de SolarAI como un producto comercial y una herramienta ya desplegada en produccion, nunca como un proyecto academico.
+        3. Si la pregunta no es sobre la herramienta o energia solar, pide amablemente volver al tema de conversacion.
+        4. Usa el contexto para responder sobre datos, modelos o inteligencia artificial.
         
         PREGUNTA: {mensaje}
         """
         
-        # Intentar con el nombre mas compatible
-        response = client.models.generate_content(
-            model="gemini-2.5-flash", 
-            contents=prompt
+        # Enviar solicitud a la API de Groq usando Llama-3.3-70b
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
-        return response.text
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"Error con Gemini (v2): {e}"
+        return f"Error con Groq: {e}"
 
 def responder_pregunta(mensaje, historial, df):
     mensaje_low = mensaje.lower()
-    contexto = """
-    Proyecto: Clasificacion de ahorro solar en Pereira.
-    Modelo: Random Forest (Accuracy 96.5%).
-    Variables: Año, Tipo, Material, Paneles, Radiacion.
-    """
-    if "hola" in mensaje_low:
-        return "Hola. ¿En que puedo ayudarle con respecto al proyecto de energia solar?"
     
-    return consultar_gemini(mensaje, contexto)
+    # Contexto del producto en produccion
+    contexto = """
+    Herramienta: SolarAI - Analizador de Ahorro Energetico Solar en Pereira.
+    Estado: Sistema de produccion desplegado.
+    Modelo: Random Forest Regressor (R2 Score de 96.5% en validacion).
+    Variables analizadas: Año de instalacion, Tipo de instalacion, Material de paneles, Cantidad de paneles, Radiacion solar del area, Eficiencia, Humedad, Temperatura.
+    """
+    
+    # Manejar saludo inicial formal y sin tutear
+    if "hola" in mensaje_low:
+        return "Hola. ¿En que puedo ayudarle con respecto a nuestra herramienta de analisis de energia solar?"
+    
+    return consultar_groq(mensaje, contexto)

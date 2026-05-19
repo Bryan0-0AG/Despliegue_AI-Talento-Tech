@@ -7,8 +7,6 @@ from src.chatbot.engine import responder_pregunta
 from src.analysis.visualizer import (
     obtener_graficos_categoricos,
     obtener_graficos_numericos,
-    obtener_graficos_analisis_target,
-    obtener_graficos_correlacion,
     obtener_graficos_correlacion_especifica
 )
 
@@ -154,7 +152,7 @@ def build_app():
     """
     with gr.Blocks(title="SolarAI") as demo:
         with gr.Row(elem_id="header"):
-            gr.Image("data/logo.png", height=50, show_label=False, container=False, interactive=False, show_download_button=False)
+            gr.Image("data/logo.png", height=50, show_label=False, container=False, interactive=False)
             gr.Markdown("# SolarAI", elem_id="title")
 
         with gr.Tabs():

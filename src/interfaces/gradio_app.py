@@ -12,74 +12,108 @@ from src.analysis.visualizer import (
     obtener_graficos_correlacion_especifica
 )
 
+# Cargar recursos globales una sola vez al inicio para optimizar velocidad
+MODELO = joblib.load('models/modelo_solar.pkl')
+PREPRO = joblib.load('models/preprocesador.pkl')
+DF_SOLAR = pd.read_excel('data/energia_solar_pereira_colombia_clean.xlsx')
+DF_IND = pd.read_excel(os.path.join("data", "colombia_indicadores_2018_2100.xlsx"))
+
 def load_resources():
-    modelo = joblib.load('models/modelo_solar.pkl')
-    prepro = joblib.load('models/preprocesador.pkl')
-    df = pd.read_excel('data/energia_solar_pereira_colombia_clean.xlsx')
-    return modelo, prepro, df
+    return MODELO, PREPRO, DF_SOLAR
 
 def predecir_ahorro(anio, tipo, material, paneles, radiacion, eficiencia, humedad, temperatura):
-    modelo, prepro, df = load_resources()
-    
-    # Cargar indicadores economicos para el año seleccionado
-    ruta_ind = os.path.join("data", "colombia_indicadores_2018_2100.xlsx")
-    df_ind = pd.read_excel(ruta_ind)
-    
-    # Buscar datos del año (si no existe, usamos el ultimo conocido)
-    datos_anio = df_ind[df_ind.iloc[:, 0] == anio]
-    if datos_anio.empty:
-        datos_anio = df_ind.tail(1)
+    try:
+        # Asegurar tipo de año entero para la busqueda
+        anio = int(anio)
         
-    ipc_g = datos_anio['ipc_general_pct'].values[0]
-    ipc_e = datos_anio['ipc_energia_pct'].values[0]
-    trm = datos_anio['trm_promedio_cop'].values[0]
+        # Buscar datos del año en los indicadores precargados
+        datos_anio = DF_IND[DF_IND.iloc[:, 0].astype(int) == anio]
+        if datos_anio.empty:
+            datos_anio = DF_IND.tail(1)
+            
+        ipc_g = float(datos_anio['ipc_general_pct'].values[0])
+        ipc_e = float(datos_anio['ipc_energia_pct'].values[0])
+        trm = float(datos_anio['trm_promedio_cop'].values[0])
 
-    # Crear DataFrame con todas las columnas que el modelo espera
-    input_df = pd.DataFrame([[
-        anio, tipo, material, paneles, radiacion, 
-        eficiencia, humedad, temperatura,
-        ipc_g, ipc_e, trm
-    ]], columns=[
-        'Año Instalación', 'Tipo', 'Material Panel', 'N° Paneles', 'Radiación Solar',
-        'Eficiencia Panel (%)', 'Humedad Relativa Prom', 'Temperatura Prom',
-        'ipc_general_pct', 'ipc_energia_pct', 'trm_promedio_cop'
-    ])
-    
-    input_pre = prepro.transform(input_df)
-    valor_predicho = modelo.predict(input_pre)[0]
+        # Crear DataFrame con todas las columnas que el modelo espera
+        input_df = pd.DataFrame([[
+            anio, tipo, material, paneles, radiacion, 
+            eficiencia, humedad, temperatura,
+            ipc_g, ipc_e, trm
+        ]], columns=[
+            'Año Instalación', 'Tipo', 'Material Panel', 'N° Paneles', 'Radiación Solar',
+            'Eficiencia Panel (%)', 'Humedad Relativa Prom', 'Temperatura Prom',
+            'ipc_general_pct', 'ipc_energia_pct', 'trm_promedio_cop'
+        ])
+        
+        # Obtener prediccion base del modelo
+        input_pre = PREPRO.transform(input_df)
+        base_pred = MODELO.predict(input_pre)[0]
 
-    # Formatear el resultado con lenguaje amigable y llamativo
-    explicacion = f"## 💰 Tu ahorro estimado: **${valor_predicho:,.2f} COP** mensuales\n"
-    explicacion += f"Este calculo considera la **inflacion de energia ({ipc_e}%)** y la **TRM (${trm:,.0f})** para el año {anio}.\n\n"
-    
-    # Añadir un indicador visual de calidad
-    if valor_predicho > 500000:
-        explicacion += "🌟 ¡Excelente! Este es un ahorro muy significativo."
-    elif valor_predicho > 100000:
-        explicacion += "✅ ¡Muy bien! Estas teniendo un ahorro considerable."
-    else:
-        explicacion += "💡 Es un ahorro inicial, ¡cada peso cuenta!"
+        # ----------------------------------------------------
+        # AJUSTE FISICO-ECONOMICO INTELIGENTE
+        # ----------------------------------------------------
+        # 1. Radiacion solar (Peso protagónico en la produccion)
+        factor_radiacion = float(radiacion) / 5.5
+        
+        # 2. Eficiencia del panel (A mayor eficiencia, mayor ahorro)
+        factor_eficiencia = float(eficiencia) / 18.5
+        
+        # 3. Humedad relativa (A mayor humedad, menor ahorro por nubosidad)
+        factor_humedad = 1.0 - ((float(humedad) - 75.0) / 100.0) * 0.4
+        
+        # 4. Temperatura promedio (La temperatura adecuada favorece la produccion)
+        factor_temperatura = 1.0 + ((float(temperatura) - 22.0) / 50.0) * 0.2
+        
+        # 5. Efecto del año e inflacion de energia acumulada en el tiempo (Ahorro monetario en COP)
+        factor_inflacion = (1.0 + ipc_e / 100.0) ** max(0, anio - 2024)
 
-    if anio > 2025:
-        explicacion += f"\n\n*Nota: Proyeccion basada en los ultimos indicadores economicos disponibles.*"
+        # Calcular el valor final escalado
+        valor_predicho = base_pred * factor_radiacion * factor_eficiencia * factor_humedad * factor_temperatura * factor_inflacion
+        # ----------------------------------------------------
 
-    # Creamos un Medidor (Gauge) visual
-    fig, ax = plt.subplots(figsize=(6, 2))
-    max_ahorro_esperado = 1000000 # Un millon como tope para la escala
-    porcentaje = min((valor_predicho / max_ahorro_esperado) * 100, 100)
-    
-    # Dibujar barra de fondo y barra de progreso
-    ax.barh([0], [100], color='#eeeeee', height=0.4)
-    color_bar = '#4CAF50' if porcentaje > 60 else '#FFC107' if porcentaje > 30 else '#F44336'
-    ax.barh([0], [porcentaje], color=color_bar, height=0.4)
-    
-    ax.set_xlim(0, 100)
-    ax.set_axis_off()
-    ax.text(0, 0.35, "Nivel de Ahorro", fontsize=12, fontweight='bold')
-    ax.text(porcentaje, -0.35, f"{porcentaje:.1f}%", ha='center', fontweight='bold', color=color_bar)
-    
-    plt.tight_layout()
-    return explicacion, fig
+        # Formatear el resultado con lenguaje amigable y llamativo
+        explicacion = f"## 💰 Tu ahorro estimado: **${valor_predicho:,.2f} COP** mensuales\n"
+        explicacion += f"Este calculo considera la **inflacion de energia ({ipc_e}%)** y la **TRM (${trm:,.0f})** para el año {anio}.\n\n"
+        
+        # Añadir un indicador visual de calidad
+        if valor_predicho > 500000:
+            explicacion += "🌟 ¡Excelente! Este es un ahorro muy significativo."
+        elif valor_predicho > 100000:
+            explicacion += "✅ ¡Muy bien! Estas teniendo un ahorro considerable."
+        else:
+            explicacion += "💡 Es un ahorro inicial, ¡cada peso cuenta!"
+
+        if anio > 2025:
+            explicacion += f"\n\n*Nota: Proyeccion basada en los ultimos indicadores economicos disponibles.*"
+
+        # Creamos un Medidor (Gauge) visual
+        fig, ax = plt.subplots(figsize=(6, 2))
+        max_ahorro_esperado = 1000000 # Un millon como tope para la escala
+        porcentaje = min((valor_predicho / max_ahorro_esperado) * 100, 100)
+        
+        # Dibujar barra de fondo y barra de progreso
+        ax.barh([0], [100], color='#eeeeee', height=0.4)
+        
+        # Ajustar colores segun porcentaje solicitado
+        if porcentaje <= 15.0:
+            color_bar = '#F44336' # Rojo
+        elif porcentaje <= 40.0:
+            color_bar = '#FFC107' # Amarillo
+        else:
+            color_bar = '#4CAF50' # Verde
+            
+        ax.barh([0], [porcentaje], color=color_bar, height=0.4)
+        
+        ax.set_xlim(0, 100)
+        ax.set_axis_off()
+        ax.text(0, 0.35, "Nivel de Ahorro", fontsize=12, fontweight='bold')
+        ax.text(porcentaje, -0.35, f"{porcentaje:.1f}%", ha='center', fontweight='bold', color=color_bar)
+        
+        plt.tight_layout()
+        return explicacion, fig
+    except Exception as e:
+        return f"⚠️ Error interno en el calculador de ahorro: {str(e)}", None
 
 def build_app():
     plt.close('all') # Limpiar figuras previas para evitar warnings de memoria

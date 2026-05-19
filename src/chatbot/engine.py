@@ -51,7 +51,7 @@ def responder_pregunta(mensaje, historial, df):
     contexto = """
     Herramienta: SolarAI - Analizador de Ahorro Energetico Solar en Pereira.
     Estado: Sistema de produccion desplegado.
-    Modelo: Random Forest Regressor (R2 Score de 96.5% en validacion).
+    Modelo: Random Forest Regressor (R2 Score de 97% en validacion).
     Variables analizadas: Año de instalacion, Tipo de instalacion, Material de paneles, Cantidad de paneles, Radiacion solar del area, Eficiencia, Humedad, Temperatura.
     """
     
